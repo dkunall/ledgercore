@@ -1,0 +1,13 @@
+ledgercore:
+  fraud:
+    # Integration tests fire many transfers from one account in seconds; keep velocity out of the way
+    # unless a test is about velocity.
+    velocity-review-count: 10000
+    velocity-block-count: 20000
+  outbox:
+    poll-interval: PT0.1S
+
+logging:
+  level:
+    org.apache.kafka: WARN
+    org.testcontainers: WARN
