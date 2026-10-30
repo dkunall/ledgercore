@@ -1,0 +1,77 @@
+name: ledgercore
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ledgercore
+      POSTGRES_USER: ledgercore
+      POSTGRES_PASSWORD: ledgercore
+    ports:
+      - "127.0.0.1:55490:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgercore -d ledgercore"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6440:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+
+  kafka:
+    image: apache/kafka:3.8.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: -Xmx256m -Xms256m
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  oauth:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
+    environment:
+      SERVER_PORT: 8080
+      JSON_CONFIG: |
+        {"interactiveLogin": false, "tokenCallbacks": [{"issuerId": "ledgercore", "tokenExpiry": 3600, "requestMappings": [
+            {"requestParam": "client_id", "match": "ops-asha", "claims": {"sub": "ops-asha", "aud": ["ledgercore"], "scope": "ledger.read ledger.write", "roles": ["ops"]}},
+            {"requestParam": "client_id", "match": "ops-ravi", "claims": {"sub": "ops-ravi", "aud": ["ledgercore"], "scope": "ledger.read ledger.write", "roles": ["ops"]}},
+            {"requestParam": "client_id", "match": "alice", "claims": {"sub": "alice", "aud": ["ledgercore"], "scope": "ledger.read ledger.write"}},
+            {"requestParam": "client_id", "match": "bob", "claims": {"sub": "bob", "aud": ["ledgercore"], "scope": "ledger.read ledger.write"}}
+        ]}]}
+    ports:
+      - "127.0.0.1:7691:8080"
+
+  app:
+    build: .
+    image: ledgercore:local
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      oauth: { condition: service_started }
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ledgercore?options=-c%20lock_timeout=2000%20-c%20statement_timeout=10000
+      DB_PASSWORD: ledgercore
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://oauth:8080/ledgercore
+      JAVA_TOOL_OPTIONS: -Xmx384m -XX:+ExitOnOutOfMemoryError
+    ports:
+      - "127.0.0.1:7690:8080"
