@@ -1,0 +1,5 @@
+# spring-webmvc 6.2.x has no open-source fix for these; the fixed line is 7.0.x (Spring Boot 4).
+# Neither is reachable here: the app renders no XsltView and serves no Server-Sent Events.
+# Revisit when moving to Boot 4.
+CVE-2026-47884
+CVE-2026-47890

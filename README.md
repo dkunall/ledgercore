@@ -213,6 +213,9 @@ I sketched this with more scope than I built. Where I simplified:
 
 ## Known limitations
 
+- Still on Spring Boot 3.5. Two spring-webmvc CVEs (CVE-2026-47884, CVE-2026-47890) are only fixed in
+  Spring Framework 7, so `.trivyignore` lists them. Neither code path (XsltView, Server-Sent Events) is
+  used here. Moving to Boot 4 removes the exception.
 - Single currency in practice. Money carries its currency and cross-currency transfers are refused, but
   there is no FX.
 - The mock rail always answers. A real rail can time out with the outcome unknown; the design is to keep

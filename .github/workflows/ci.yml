@@ -51,6 +51,7 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: '1'
+          trivyignores: .trivyignore
       - name: Compose smoke test
         run: |
           docker tag ledgercore:${{ github.sha }} ledgercore:local
