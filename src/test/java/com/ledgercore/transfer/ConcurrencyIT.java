@@ -63,10 +63,13 @@ class ConcurrencyIT extends IntegrationTest {
             assertThat(get(OPS, "/v1/accounts/" + account + "/integrity").getBody().get("valid").asBoolean()).isTrue();
         }
         assertThat(total).isEqualTo(ACCOUNTS * OPENING);
+        // Scoped to this test's entries: LedgerIntegrityIT deliberately leaves a tampered row in the shared database.
         assertThat(jdbc.sql("""
                 SELECT count(*) FROM (
-                    SELECT entry_id FROM posting GROUP BY entry_id HAVING sum(amount_minor) <> 0) unbalanced
-                """).query(Long.class).single()).isZero();
+                    SELECT entry_id FROM posting
+                    WHERE entry_id IN (SELECT entry_id FROM posting WHERE account_id = ANY (?))
+                    GROUP BY entry_id HAVING sum(amount_minor) <> 0) unbalanced
+                """).param(accounts.toArray(UUID[]::new)).query(Long.class).single()).isZero();
     }
 
     private static void awaitQuietly(CountDownLatch latch) {
